@@ -1,0 +1,20 @@
+{
+    "name": "wind-framework/memcache",
+    "description": "Wind framework coroutine memcache client.",
+    "type": "library",
+    "require": {
+        "wind-framework/wind-framework": "1.0.x-dev"
+    },
+    "license": "Apache-2.0",
+    "authors": [
+        {
+            "name": "Pader",
+            "email": "ypnow@163.com"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "Wind\\Memcache\\": "src/"
+        }
+    }
+}
