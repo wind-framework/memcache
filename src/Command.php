@@ -56,6 +56,8 @@ https://github.com/memcached/memcached/wiki/BinaryProtocolRevamped
 class Command implements SimpleTextCommand
 {
 
+    private const HEADER_LENGTH = 24;
+
     private DeferredFuture $deferred;
 
     public function __construct(private int $opcode, private ?string $key=null, private ?string $value=null, private ?string $extras=null)
@@ -71,16 +73,16 @@ class Command implements SimpleTextCommand
     public function encode(): string
     {
         $keyLength = $this->key !== null ? strlen($this->key) : 0;
-        $extraLength = $this->extras === null ? 0 : strlen($this->extras);
+        $extrasLength = $this->extras === null ? 0 : strlen($this->extras);
         $valueLength = $this->value === null ? 0 : strlen($this->value);
 
         $cmd = pack(
             'CCnCCnNNJ',
             0x80, $this->opcode, $keyLength,
-            $extraLength, 0, 0,
-            $keyLength + $extraLength + $valueLength,
-            0,
-            0
+            $extrasLength, 0, 0, //data type, vbucket id
+            $keyLength + $extrasLength + $valueLength,
+            0, //opaque
+            0 //cas
         );
 
         $this->extras !== null && $cmd .= $this->extras;
@@ -90,20 +92,37 @@ class Command implements SimpleTextCommand
         return $cmd;
     }
 
+    public function decode($buffer)
+    {
+        $header = unpack('Cmagic/Copcode/nkeylength/Cextraslength/Cdatatype/nstatus/Ntotalbodylength/Nopaque/Jcas', $buffer);
+        $prependLength = $header['extraslength'] + $header['keylength'];
+        return $header + [
+            'extras' => $header['extraslength'] > 0 ? substr($buffer, self::HEADER_LENGTH, $header['extraslength']) : '',
+            'key' => $header['keylength'] > 0 ? substr($buffer, self::HEADER_LENGTH + $header['extraslength'], $header['keylength']) : null,
+            'value' => $header['totalbodylength'] > $prependLength ? substr($buffer, self::HEADER_LENGTH + $prependLength, $header['totalbodylength'] - $prependLength) : ''
+        ];
+    }
+
     public function resolve(string|Throwable $buffer)
     {
         if ($buffer instanceof Throwable) {
             $this->deferred->error($buffer);
         } else {
-            $header = unpack('Cmagic/Copcode/nkeylength/Cextraslength/Cdatatype/nstatus/Ntotalbodylength/Nopaque/Jcas', $buffer);
+            $data = $this->decode($buffer);
 
-            // $extras = $header['extraslength'] > 0 ? substr($buffer, 24, $header['extraslength']) : '';
-            // $key = $header['keylength'] > 0 ? substr($buffer, 24 + $header['extraslength'], $header['keylength']) : '';
-            $body = $header['totalbodylength'] > 0 ? substr($buffer, 24 + $header['extraslength'] + $header['keylength'], $header['totalbodylength'] - $header['extraslength'] - $header['keylength']) : '';
-
-            switch ($header['status']) {
+            switch ($data['status']) {
                 case 0x00;
-                    $this->deferred->complete($body);
+                    if ($data['opcode'] == 0x10) {
+                        $values = [];
+                        do {
+                            $values[$data['key']] = $data['value'];
+                            $buffer = substr($buffer, self::HEADER_LENGTH + $data['totalbodylength']);
+                            $data = $this->decode($buffer);
+                        } while ($data['key'] !== null);
+                        $this->deferred->complete($values);
+                    } else {
+                        $this->deferred->complete($data['value']);
+                    }
                     break;
 
                 case 0x01:
@@ -111,21 +130,21 @@ class Command implements SimpleTextCommand
                     break;
 
                 default:
-                    $this->deferred->error(new MemcacheException($body));
+                    $this->deferred->error(new MemcacheException($data['value']));
             }
         }
     }
 
     public static function bytes(string $buffer): int
     {
-        $unpack = unpack('Copcode/nkeylength', substr($buffer, 1, 3));
+        $unpack = unpack('Copcode', substr($buffer, 1, 1));
         $unpack += unpack('Ntotalbodylength', substr($buffer, 8, 4));
 
         if ($unpack['opcode'] == 0x10) {
-            print_r($unpack);
+            return 0;
         }
 
-        return strlen($buffer) - 24 - $unpack['totalbodylength'];
+        return strlen($buffer) - self::HEADER_LENGTH - $unpack['totalbodylength'];
     }
 
 }

@@ -106,6 +106,11 @@ class Memcache extends SimpleTextClient
         return $this->execute(new Command(0x0f, $key, $value));
     }
 
+    /**
+     * Stats
+     * @param string|null $key One of 'settings', 'items', 'slabs', 'sizes', 'sizes_enable', 'sizes_disable', 'conns'
+     * @return array|false
+     */
     public function stats($key=null)
     {
         return $this->execute(new Command(0x10, $key));
