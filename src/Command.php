@@ -113,6 +113,7 @@ class Command implements SimpleTextCommand
             switch ($data['status']) {
                 case 0x00;
                     if ($data['opcode'] == 0x10) {
+                        //stats array decode
                         $values = [];
                         do {
                             $values[$data['key']] = $data['value'];
@@ -141,6 +142,7 @@ class Command implements SimpleTextCommand
         $unpack += unpack('Ntotalbodylength', substr($buffer, 8, 4));
 
         if ($unpack['opcode'] == 0x10) {
+            //stats command return multiple buffer, skipped calculate bytes due to complexity
             return 0;
         }
 

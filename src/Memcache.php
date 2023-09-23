@@ -38,6 +38,18 @@ class Memcache extends SimpleTextClient
         return $this->execute(new Command(0x00, $key));
     }
 
+    /**
+     * Get and touch
+     *
+     * @param string $key
+     * @param int $expiry
+     * @return string|false
+     */
+    public function gat($key, $expiry)
+    {
+        return $this->execute(new Command(0x1d, $key, extras: pack('N', $expiry)));
+    }
+
     public function set($key, $value, $expiry=0)
     {
         return $this->store(0x01, $key, $value, $expiry);
@@ -108,12 +120,24 @@ class Memcache extends SimpleTextClient
 
     /**
      * Stats
+     *
      * @param string|null $key One of 'settings', 'items', 'slabs', 'sizes', 'sizes_enable', 'sizes_disable', 'conns'
      * @return array|false
      */
     public function stats($key=null)
     {
         return $this->execute(new Command(0x10, $key));
+    }
+
+    /**
+     * Set a new expiration time for an existing item
+     *
+     * @param string $key
+     * @param int $expiration
+     */
+    public function touch($key, $expiration)
+    {
+        return $this->execute(new Command(0x1c, $key, extras: pack('N', $expiration)));
     }
 
 }
