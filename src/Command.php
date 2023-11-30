@@ -8,7 +8,7 @@ use Throwable;
 use Wind\Socket\SimpleTextCommand;
 
 /*
-Redis binary protocol
+Memcache binary protocol
 https://github.com/memcached/memcached/wiki/BinaryProtocolRevamped
 
     Request header
