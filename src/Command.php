@@ -30,7 +30,7 @@ https://github.com/memcached/memcached/wiki/BinaryProtocolRevamped
        +---------------+---------------+---------------+---------------+
        Total 24 bytes
 
-    Request header
+    Response header
 
      Byte/     0       |       1       |       2       |       3       |
         /              |               |               |               |
@@ -142,11 +142,11 @@ class Command implements SimpleTextCommand
         $unpack += unpack('Ntotalbodylength', substr($buffer, 8, 4));
 
         if ($unpack['opcode'] == 0x10) {
-            //stats command return multiple buffer, skipped calculate bytes due to complexity
-            return 0;
+            //Todo: stats command return multiple buffer, skipped calculate bytes due to complexity
+            return -1;
         }
 
-        return strlen($buffer) - self::HEADER_LENGTH - $unpack['totalbodylength'];
+        return self::HEADER_LENGTH + $unpack['totalbodylength'];
     }
 
 }
